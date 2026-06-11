@@ -1,0 +1,7 @@
+# Chess logic and engine interface
+chess>=1.10.0
+
+# Web framework and server
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6

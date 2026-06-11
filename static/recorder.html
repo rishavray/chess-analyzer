@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess Recorder</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:       #0f1117;
+  --surface:  #1a1f2e;
+  --surface2: #232840;
+  --border:   #2e3450;
+  --gold:     #c9a84c;
+  --gold-dim: #7a6330;
+  --text:     #e2e2e2;
+  --dim:      #7a8099;
+  --green:    #4caf82;
+  --red:      #e05555;
+  --mono:     'Space Mono', monospace;
+  --ui:       'Inter', system-ui, sans-serif;
+  --r:        6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: var(--ui); height: 100vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* ── Header ── */
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+.logo { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--gold); }
+.logo span { color: var(--dim); font-weight: 400; }
+.pill {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 2px 10px;
+  font-size: 11px; color: var(--dim); font-family: var(--mono);
+}
+.nav-link {
+  margin-left: auto; background: var(--surface2);
+  border: 1px solid var(--border); color: var(--dim);
+  padding: 5px 14px; border-radius: var(--r);
+  cursor: pointer; font-size: 12px; font-family: var(--ui);
+  text-decoration: none; transition: border-color .15s, color .15s;
+}
+.nav-link:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Layout ── */
+main { flex: 1; display: flex; overflow: hidden; }
+
+/* ── Board column ── */
+.board-col {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 20px; gap: 12px;
+  min-width: 340px; border-right: 1px solid var(--border);
+}
+.player-tag {
+  width: 360px; display: flex; align-items: center; gap: 8px; font-size: 13px;
+}
+.player-tag .piece { font-size: 20px; line-height: 1; }
+.player-tag input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text); font-family: var(--ui);
+  font-size: 13px; padding: 5px 10px; outline: none; transition: border-color .15s;
+}
+.player-tag input:focus { border-color: var(--gold); }
+.turn-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--dim); flex-shrink: 0; transition: background .2s;
+}
+.turn-dot.active { background: var(--gold); }
+
+#board { width: 360px; cursor: pointer; user-select: none; }
+#board svg { width: 360px; height: 360px; display: block; }
+
+.status-bar {
+  width: 360px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 12px; color: var(--dim);
+  background: var(--surface2); border-radius: var(--r);
+  border: 1px solid var(--border); transition: color .2s, border-color .2s;
+}
+.status-bar.check { color: var(--red);  border-color: var(--red); }
+.status-bar.over  { color: var(--gold); border-color: var(--gold); }
+
+.controls { width: 360px; display: flex; gap: 8px; }
+.ctrl-btn {
+  flex: 1; padding: 9px 0;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--r); font-size: 13px;
+  cursor: pointer; font-family: var(--ui);
+  transition: background .12s, border-color .12s, color .12s;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.ctrl-btn:hover { background: var(--surface); border-color: var(--gold); color: var(--gold); }
+.ctrl-btn:disabled { opacity: .3; cursor: not-allowed; }
+.ctrl-btn:disabled:hover { background: var(--surface2); border-color: var(--border); color: var(--text); }
+
+.actions { width: 360px; display: flex; gap: 8px; }
+.act-btn {
+  flex: 1; padding: 10px 0; border-radius: var(--r);
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--ui);
+  transition: opacity .15s; border: none;
+}
+.act-btn.save    { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+.act-btn.save:hover { border-color: var(--gold); color: var(--gold); }
+.act-btn.analyze { background: var(--gold); color: #0f1117; }
+.act-btn:hover   { opacity: .88; }
+.act-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+/* ── Move list column ── */
+.moves-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.moves-header {
+  padding: 10px 16px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--dim);
+  display: flex; align-items: center; flex-shrink: 0;
+}
+.move-count { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+.move-pairs { flex: 1; overflow-y: auto; padding: 8px 0; }
+.move-pairs::-webkit-scrollbar { width: 4px; }
+.move-pairs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.move-pair {
+  display: flex; align-items: center;
+  padding: 3px 14px; gap: 2px; font-size: 13px;
+}
+.pair-num {
+  font-family: var(--mono); font-size: 11px; color: var(--dim);
+  width: 28px; flex-shrink: 0;
+}
+.move-token {
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  padding: 3px 8px; border-radius: 3px; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background .1s, border-color .1s, color .1s;
+  min-width: 58px;
+}
+.move-token:hover      { background: var(--surface2); border-color: var(--border); }
+.move-token.active     { background: #1e2a3a; border-color: var(--gold); color: var(--gold); }
+.move-token.white-move { color: var(--text); }
+.move-token.black-move { color: #b0b8cc; }
+
+/* PGN section */
+.pgn-section { border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+.pgn-label {
+  padding: 8px 14px 4px; font-size: 10px; font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--dim);
+  display: flex; align-items: center; gap: 8px;
+}
+.copy-pgn-btn {
+  margin-left: auto; background: none; border: 1px solid var(--border);
+  color: var(--dim); border-radius: 3px; padding: 1px 8px; font-size: 10px;
+  cursor: pointer; font-family: var(--mono); transition: border-color .15s, color .15s;
+}
+.copy-pgn-btn:hover { border-color: var(--gold); color: var(--gold); }
+.pgn-text {
+  font-family: var(--mono); font-size: 11px; color: var(--dim);
+  padding: 4px 14px 10px; line-height: 1.6;
+  max-height: 72px; overflow-y: auto; word-break: break-word;
+}
+
+/* ── Promotion modal ── */
+#promo-modal {
+  display: none; position: fixed; inset: 0;
+  background: #0009; align-items: center; justify-content: center; z-index: 200;
+}
+#promo-modal.open { display: flex; }
+.promo-box {
+  background: var(--surface); border: 1px solid var(--gold-dim);
+  border-radius: 10px; padding: 24px;
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+}
+.promo-box h3 { font-size: 13px; color: var(--dim); font-weight: 500; }
+.promo-pieces { display: flex; gap: 10px; }
+.promo-btn {
+  width: 64px; height: 64px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 38px; line-height: 1; transition: border-color .15s, background .15s;
+}
+.promo-btn:hover { border-color: var(--gold); background: #1e2a3a; }
+
+/* ── Toast ── */
+#toast {
+  display: none; position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  background: #1a2a1a; border: 1px solid var(--green); color: var(--green);
+  padding: 8px 16px; border-radius: var(--r); font-size: 13px; z-index: 999;
+}
+#toast.err { background: #3a1010; border-color: var(--red); color: #ff6666; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">♟ chess<span>/record</span></div>
+  <div class="pill" id="turn-pill">White to move</div>
+  <a class="nav-link" href="/">← Analyzer</a>
+</header>
+
+<main>
+  <div class="board-col">
+    <div class="player-tag">
+      <span class="piece">♚</span>
+      <input id="black-name" type="text" placeholder="Black player" maxlength="40">
+      <span class="turn-dot" id="black-dot"></span>
+    </div>
+
+    <div id="board"></div>
+
+    <div class="player-tag">
+      <span class="piece">♔</span>
+      <input id="white-name" type="text" placeholder="White player" maxlength="40">
+      <span class="turn-dot active" id="white-dot"></span>
+    </div>
+
+    <div class="status-bar" id="status">Click a piece to begin</div>
+
+    <div class="controls">
+      <button class="ctrl-btn" id="undo-btn"    onclick="undoMove()"    disabled>↩ Undo</button>
+      <button class="ctrl-btn" id="restart-btn" onclick="restartGame()">↺ Restart</button>
+      <button class="ctrl-btn" id="flip-btn"    onclick="flipBoard()">⇅ Flip</button>
+    </div>
+
+    <div class="actions">
+      <button class="act-btn save"    id="save-btn"    onclick="savePGN()"        disabled>⬇ Save PGN</button>
+      <button class="act-btn analyze" id="analyze-btn" onclick="sendToAnalyzer()" disabled>Analyze →</button>
+    </div>
+  </div>
+
+  <div class="moves-col">
+    <div class="moves-header">
+      Move list
+      <span class="move-count" id="move-count">0 moves</span>
+    </div>
+    <div class="move-pairs" id="move-pairs">
+      <div class="empty-hint">Moves will appear here as you play.</div>
+    </div>
+    <div class="pgn-section">
+      <div class="pgn-label">
+        PGN
+        <button class="copy-pgn-btn" onclick="copyPGN()">copy</button>
+      </div>
+      <div class="pgn-text" id="pgn-text">—</div>
+    </div>
+  </div>
+</main>
+
+<!-- Promotion modal -->
+<div id="promo-modal">
+  <div class="promo-box">
+    <h3>Promote pawn to…</h3>
+    <div class="promo-pieces" id="promo-pieces">
+      <button class="promo-btn" data-piece="q">♛</button>
+      <button class="promo-btn" data-piece="r">♜</button>
+      <button class="promo-btn" data-piece="b">♝</button>
+      <button class="promo-btn" data-piece="n">♞</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<style>
+.empty-hint { padding: 20px 14px; color: var(--dim); font-size: 13px; font-style: italic; }
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// State
+// All game state lives here — the server is stateless.
+// ═══════════════════════════════════════════════════════
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// Snapshot of state at every ply so we can rewind cleanly
+// snapshots[0] = start, snapshots[n] = after move n-1
+let snapshots = [{ fen: START_FEN, lastUci: '' }];
+let movesSan  = [];   // SAN string for each ply
+let movesUci  = [];   // UCI string for each ply
+let pgn       = '';
+let viewIdx   = 0;    // which snapshot we're currently viewing (0 = start)
+let liveIdx   = 0;    // how far the actual game has progressed
+let selected  = null; // square name currently selected, or null
+let legalDests = [];  // legal destinations from selected square
+let flipped   = false;
+let gameOver  = false;
+let promoResolve = null;
+
+// ═══════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════
+const g = id => document.getElementById(id);
+
+function post(url, body) {
+  const fd = new FormData();
+  Object.entries(body).forEach(([k, v]) => fd.append(k, String(v)));
+  return fetch(url, { method: 'POST', body: fd }).then(r => r.json());
+}
+
+function toast(msg, isError = false) {
+  const t = g('toast');
+  t.textContent = msg;
+  t.className   = isError ? 'err' : '';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════
+// Board rendering
+// ═══════════════════════════════════════════════════════
+function renderSvg(svgStr) {
+  g('board').innerHTML = svgStr;
+  const svgEl = g('board').querySelector('svg');
+  if (svgEl) svgEl.addEventListener('click', onBoardClick);
+}
+
+async function renderAt(snapshotIdx, selSq = null) {
+  const snap = snapshots[snapshotIdx];
+  const data = await post('/game/legal-moves', {
+    fen:    snap.fen,
+    square: selSq || 'a1',   // a1 with no pieces on it = just renders board
+  });
+
+  // If selSq has no legal moves it returns clean board SVG — perfect
+  renderSvg(data.svg);
+}
+
+// ═══════════════════════════════════════════════════════
+// Square coordinate mapping
+// ═══════════════════════════════════════════════════════
+function squareFromClick(svgEl, clientX, clientY) {
+  const rect   = svgEl.getBoundingClientRect();
+  const sz     = rect.width;
+  // chess.svg default: 45px margin each side on a 390px canvas → ~11.5%
+  const margin = sz * 0.1155;
+  const inner  = sz - 2 * margin;
+  const sqSz   = inner / 8;
+
+  let col = Math.floor((clientX - rect.left  - margin) / sqSz);
+  let row = Math.floor((clientY - rect.top   - margin) / sqSz);
+
+  if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+
+  if (flipped) { col = 7 - col; } else { row = 7 - row; }
+
+  return 'abcdefgh'[col] + (row + 1);
+}
+
+// ═══════════════════════════════════════════════════════
+// Click handler
+// ═══════════════════════════════════════════════════════
+async function onBoardClick(e) {
+  const sq = squareFromClick(e.currentTarget, e.clientX, e.clientY);
+  if (!sq) return;
+
+  // If viewing history, jump back to live before allowing input
+  if (viewIdx < liveIdx) {
+    viewIdx = liveIdx;
+    selected = null;
+    legalDests = [];
+    await renderAt(liveIdx);
+    updateMoveList();
+    return;
+  }
+
+  if (gameOver) return;
+
+  if (selected === null) {
+    // ── First click: try to select a piece ──
+    const data = await post('/game/legal-moves', {
+      fen:    snapshots[liveIdx].fen,
+      square: sq,
+    });
+    if (!data.legal_dests || data.legal_dests.length === 0) {
+      // Nothing selectable here
+      return;
+    }
+    selected    = sq;
+    legalDests  = data.legal_dests;
+    renderSvg(data.svg);
+
+  } else {
+    // ── Second click: deselect, re-select, or move ──
+    if (sq === selected) {
+      // Deselect
+      selected = null; legalDests = [];
+      await renderAt(liveIdx);
+      return;
+    }
+
+    if (!legalDests.includes(sq)) {
+      // Try selecting a different piece
+      const data = await post('/game/legal-moves', {
+        fen:    snapshots[liveIdx].fen,
+        square: sq,
+      });
+      if (data.legal_dests && data.legal_dests.length > 0) {
+        selected   = sq;
+        legalDests = data.legal_dests;
+        renderSvg(data.svg);
+      } else {
+        selected = null; legalDests = [];
+        await renderAt(liveIdx);
+      }
+      return;
+    }
+
+    // ── Legal destination: execute move ──
+    let promo = 'q';
+    // Check if any legal move from selected to sq is a promotion
+    const needsPromo = await post('/game/legal-moves', {
+      fen: snapshots[liveIdx].fen, square: selected,
+    }).then(d => d.needs_promo);
+
+    if (needsPromo) promo = await askPromotion();
+
+    const white = g('white-name').value.trim() || 'White';
+    const black = g('black-name').value.trim() || 'Black';
+
+    const result = await post('/game/move', {
+      fen:       snapshots[liveIdx].fen,
+      from_sq:   selected,
+      to_sq:     sq,
+      promotion: promo,
+      moves_uci: movesUci.join(' '),
+      white,
+      black,
+    });
+
+    selected = null; legalDests = [];
+
+    if (!result.legal) {
+      toast('Illegal move', true);
+      await renderAt(liveIdx);
+      return;
+    }
+
+    // Commit
+    snapshots.push({ fen: result.new_fen, lastUci: result.uci });
+    movesUci.push(result.uci);
+    movesSan.push(result.san);
+    pgn      = result.pgn;
+    liveIdx  = snapshots.length - 1;
+    viewIdx  = liveIdx;
+    gameOver = result.game_over;
+
+    renderSvg(result.svg);
+    updateMoveList();
+    updatePGN(pgn);
+    updateButtons();
+    updateTurnIndicator(result.new_fen);
+
+    if (result.in_check && !result.game_over) {
+      setStatus('Check!', 'check');
+    } else if (result.game_over) {
+      setStatus(result.game_over_msg, 'over');
+    } else {
+      setStatus(result.new_fen.includes(' w ') ? 'White to move' : 'Black to move', '');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Controls
+// ═══════════════════════════════════════════════════════
+async function undoMove() {
+  if (liveIdx === 0) return;
+  // Pop the last move
+  snapshots.pop();
+  movesUci.pop();
+  movesSan.pop();
+  liveIdx--;
+  viewIdx = liveIdx;
+  selected = null; legalDests = [];
+  gameOver = false;
+
+  // Rebuild PGN from scratch
+  if (movesUci.length === 0) {
+    pgn = '';
+    updatePGN('');
+  } else {
+    const white = g('white-name').value.trim() || 'White';
+    const black = g('black-name').value.trim() || 'Black';
+    // Re-request last committed state to get fresh PGN
+    const result = await post('/game/move', {
+      fen:       snapshots[liveIdx - 1]?.fen || START_FEN,
+      from_sq:   movesUci[movesUci.length - 1].slice(0, 2),
+      to_sq:     movesUci[movesUci.length - 1].slice(2, 4),
+      promotion: movesUci[movesUci.length - 1][4] || 'q',
+      moves_uci: movesUci.slice(0, -1).join(' '),
+      white, black,
+    });
+    if (result.pgn) { pgn = result.pgn; updatePGN(pgn); }
+  }
+
+  await renderAt(liveIdx);
+  updateMoveList();
+  updateButtons();
+  const fen = snapshots[liveIdx].fen;
+  updateTurnIndicator(fen);
+  setStatus(fen.includes(' w ') ? 'White to move' : 'Black to move', '');
+}
+
+async function jumpTo(idx) {
+  // idx is a ply index (0 = start)
+  viewIdx  = Math.max(0, Math.min(liveIdx, idx));
+  selected = null; legalDests = [];
+  await renderAt(viewIdx);
+  updateMoveList();
+
+  if (viewIdx < liveIdx) {
+    setStatus('Reviewing — click board to return to live position', '');
+  } else {
+    const fen = snapshots[liveIdx].fen;
+    setStatus(fen.includes(' w ') ? 'White to move' : 'Black to move', '');
+  }
+}
+
+async function restartGame() {
+  if (liveIdx > 0 && !confirm('Start a new game? Current moves will be lost.')) return;
+  snapshots = [{ fen: START_FEN, lastUci: '' }];
+  movesSan = []; movesUci = [];
+  pgn = ''; liveIdx = 0; viewIdx = 0;
+  selected = null; legalDests = [];
+  gameOver = false;
+  await renderAt(0);
+  updateMoveList();
+  updatePGN('');
+  updateButtons();
+  setStatus('Click a piece to begin', '');
+  updateTurnIndicator(START_FEN);
+}
+
+async function flipBoard() {
+  flipped = !flipped;
+  // Re-fetch board SVG with flipped flag
+  const snap = snapshots[viewIdx];
+  const resp = await post('/game/board-svg', {
+    fen:       snap.fen,
+    last_move: snap.lastUci || '',
+    flipped:   flipped ? '1' : '0',
+  });
+  renderSvg(resp.svg);
+}
+
+// ═══════════════════════════════════════════════════════
+// Keyboard navigation
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown', async e => {
+  // Don't steal keys from the name inputs
+  if (document.activeElement.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); await jumpTo(viewIdx - 1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); await jumpTo(viewIdx + 1); }
+  if (e.key === 'Home')       { e.preventDefault(); await jumpTo(0); }
+  if (e.key === 'End')        { e.preventDefault(); await jumpTo(liveIdx); }
+  if (e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); await undoMove(); }
+});
+
+// ═══════════════════════════════════════════════════════
+// Promotion
+// ═══════════════════════════════════════════════════════
+function askPromotion() {
+  return new Promise(resolve => {
+    promoResolve = resolve;
+    g('promo-modal').classList.add('open');
+  });
+}
+g('promo-pieces').addEventListener('click', e => {
+  const btn = e.target.closest('[data-piece]');
+  if (!btn || !promoResolve) return;
+  g('promo-modal').classList.remove('open');
+  promoResolve(btn.dataset.piece);
+  promoResolve = null;
+});
+
+// ═══════════════════════════════════════════════════════
+// UI updates
+// ═══════════════════════════════════════════════════════
+function setStatus(msg, cls = '') {
+  const el = g('status');
+  el.textContent = msg;
+  el.className   = 'status-bar ' + cls;
+}
+
+function updateTurnIndicator(fen) {
+  const isWhite = fen.includes(' w ');
+  g('white-dot').classList.toggle('active',  isWhite);
+  g('black-dot').classList.toggle('active', !isWhite);
+  g('turn-pill').textContent = isWhite ? 'White to move' : 'Black to move';
+}
+
+function updateMoveList() {
+  const el    = g('move-pairs');
+  const total = movesSan.length;
+
+  if (total === 0) {
+    el.innerHTML = '<div class="empty-hint">Moves will appear here as you play.</div>';
+    g('move-count').textContent = '0 moves';
+    return;
+  }
+
+  // viewIdx 0 = start (before any move); viewIdx n = after move n
+  // A move token at ply i is "active" when viewIdx === i + 1
+  let html = '';
+  for (let i = 0; i < total; i += 2) {
+    const num    = Math.floor(i / 2) + 1;
+    const wSan   = movesSan[i];
+    const bSan   = movesSan[i + 1] || '';
+    const wClass = (viewIdx === i + 1) ? 'active' : '';
+    const bClass = (viewIdx === i + 2) ? 'active' : '';
+    html += `<div class="move-pair">
+      <span class="pair-num">${num}.</span>
+      <span class="move-token white-move ${wClass}" data-ply="${i + 1}">${escapeHtml(wSan)}</span>
+      ${bSan ? `<span class="move-token black-move ${bClass}" data-ply="${i + 2}">${escapeHtml(bSan)}</span>` : ''}
+    </div>`;
+  }
+  el.innerHTML = html;
+
+  el.querySelectorAll('.move-token').forEach(tok => {
+    tok.addEventListener('click', () => jumpTo(parseInt(tok.dataset.ply)));
+  });
+
+  const active = el.querySelector('.move-token.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+
+  g('move-count').textContent = `${total} move${total !== 1 ? 's' : ''}`;
+}
+
+function updatePGN(pgnStr) {
+  // Show only the moves line
+  const lines = pgnStr.trim().split('\n').filter(l => l.trim() && !l.startsWith('['));
+  g('pgn-text').textContent = lines.join(' ') || '—';
+}
+
+function updateButtons() {
+  const has = liveIdx > 0;
+  g('undo-btn').disabled    = liveIdx === 0 || gameOver;
+  g('save-btn').disabled    = !has;
+  g('analyze-btn').disabled = !has;
+}
+
+// ═══════════════════════════════════════════════════════
+// Save / Analyze
+// ═══════════════════════════════════════════════════════
+function savePGN() {
+  if (!pgn || liveIdx === 0) return;
+  const white = g('white-name').value.trim() || 'White';
+  const black = g('black-name').value.trim() || 'Black';
+  const fname = `${white}_vs_${black}.pgn`
+    .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+  const blob  = new Blob([pgn], { type: 'application/x-chess-pgn' });
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href = url; a.download = fname; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function sendToAnalyzer() {
+  if (!pgn || liveIdx === 0) return;
+  window.location.href = '/?pgn=' + encodeURIComponent(pgn);
+}
+
+function copyPGN() {
+  if (!pgn) return;
+  navigator.clipboard.writeText(pgn)
+    .then(() => toast('PGN copied'))
+    .catch(() => toast('Copy failed — use Save PGN instead', true));
+}
+
+// ═══════════════════════════════════════════════════════
+// Analyzer page: auto-populate PGN from URL param
+// ═══════════════════════════════════════════════════════
+function checkUrlPgn() {
+  const params = new URLSearchParams(window.location.search);
+  const pgn    = params.get('pgn');
+  if (pgn) {
+    const ta = document.getElementById('pgn');
+    if (ta) { ta.value = decodeURIComponent(pgn); }
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════
+async function init() {
+  // Render start position
+  const data = await post('/game/board-svg', {
+    fen: START_FEN, last_move: '', flipped: '0',
+  });
+  renderSvg(data.svg);
+  setStatus('Click a piece to begin', '');
+}
+
+init();
+</script>
+</body>
+</html>
